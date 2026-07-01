@@ -1,0 +1,28 @@
+{
+  "name": "coherix-review-agent",
+  "version": "0.1.0",
+  "description": "A Slack agent that helps teams decide when AI-generated outputs need human review.",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node src/app.js"
+  },
+  "keywords": [
+    "slack",
+    "agent",
+    "ai-output-review",
+    "governance",
+    "coherix",
+    "cmci"
+  ],
+  "author": "Christian St-Louis",
+  "license": "MIT",
+  "dependencies": {
+    "@slack/bolt": "^4.7.3",
+    "dotenv": "^16.6.1"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "type": "commonjs"
+}
