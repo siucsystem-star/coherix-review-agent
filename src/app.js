@@ -33,30 +33,105 @@ function parseInput(text) {
   return sections;
 }
 
-function formatReview(result) {
+function getStatusStyle(status) {
+  if (status === "OK") {
+    return {
+      emoji: "🟩",
+      title: "OK",
+      message: "No major cross-layer incompatibility detected."
+    };
+  }
+
+  if (status === "Review") {
+    return {
+      emoji: "🟨",
+      title: "Review",
+      message: "Human review is recommended before use."
+    };
+  }
+
+  return {
+    emoji: "🟥",
+    title: "High Review",
+    message: "High-priority human review is recommended before use."
+  };
+}
+
+function buildReviewBlocks(result) {
+  const status = getStatusStyle(result.status);
+
   const reasons =
     result.reasons.length > 0
       ? result.reasons.map(reason => `• ${reason}`).join("\n")
       : "• No major cross-layer incompatibility was detected by the MVP review logic.";
 
-  return `
-*Coherix Review Agent*
-
-*Status:* ${result.status}
-
-*Prompt alignment:* ${result.promptAlignment}
-*Constraint adherence:* ${result.constraintAdherence}
-*Evidence support:* ${result.evidenceSupport}
-*Cross-layer risk:* ${result.crossLayerRisk}
-
-*Reason:*
-${reasons}
-
-*Recommendation:*
-${result.recommendation}
-
-_Note: This agent does not verify truth, detect hallucinations, guarantee compliance, or replace human review._
-`;
+  return [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `${status.emoji} Coherix Review Agent — ${status.title}`,
+        emoji: true
+      }
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*AI-output review completed.*\n${status.message}`
+      }
+    },
+    {
+      type: "divider"
+    },
+    {
+      type: "section",
+      fields: [
+        {
+          type: "mrkdwn",
+          text: `*Prompt alignment*\n${result.promptAlignment}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Constraint adherence*\n${result.constraintAdherence}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Evidence support*\n${result.evidenceSupport}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Cross-layer risk*\n${result.crossLayerRisk}`
+        }
+      ]
+    },
+    {
+      type: "divider"
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Why this was flagged*\n${reasons}`
+      }
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Recommendation*\n${result.recommendation}`
+      }
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: "Triage signal only — this agent does not verify truth, detect hallucinations, guarantee compliance, or replace human review."
+        }
+      ]
+    }
+  ];
 }
 
 app.command("/coherix-review", async ({ command, ack, respond }) => {
@@ -65,10 +140,12 @@ app.command("/coherix-review", async ({ command, ack, respond }) => {
   const input = parseInput(command.text);
   const result = reviewAIOutput(input);
 
-  await respond(formatReview(result));
+  await respond({
+    response_type: "ephemeral",
+    text: `Coherix Review Agent — ${result.status}`,
+    blocks: buildReviewBlocks(result)
+  });
 });
-
-
 
 (async () => {
   await app.start(process.env.PORT || 3000);
