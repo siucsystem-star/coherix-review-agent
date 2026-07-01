@@ -81,33 +81,17 @@ function buildReviewBlocks(result) {
         text: `*AI-output review completed.*\n${status.message}`
       }
     },
-    {
-      type: "divider"
-    },
+    { type: "divider" },
     {
       type: "section",
       fields: [
-        {
-          type: "mrkdwn",
-          text: `*Prompt alignment*\n${result.promptAlignment}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Constraint adherence*\n${result.constraintAdherence}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Evidence support*\n${result.evidenceSupport}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Cross-layer risk*\n${result.crossLayerRisk}`
-        }
+        { type: "mrkdwn", text: `*Prompt alignment*\n${result.promptAlignment}` },
+        { type: "mrkdwn", text: `*Constraint adherence*\n${result.constraintAdherence}` },
+        { type: "mrkdwn", text: `*Evidence support*\n${result.evidenceSupport}` },
+        { type: "mrkdwn", text: `*Cross-layer risk*\n${result.crossLayerRisk}` }
       ]
     },
-    {
-      type: "divider"
-    },
+    { type: "divider" },
     {
       type: "section",
       text: {
@@ -134,14 +118,113 @@ function buildReviewBlocks(result) {
   ];
 }
 
-app.command("/coherix-review", async ({ command, ack, respond }) => {
+function buildReviewModal(channelId) {
+  return {
+    type: "modal",
+    callback_id: "coherix_review_modal",
+    private_metadata: JSON.stringify({ channelId }),
+    title: {
+      type: "plain_text",
+      text: "Coherix Review"
+    },
+    submit: {
+      type: "plain_text",
+      text: "Submit Review"
+    },
+    close: {
+      type: "plain_text",
+      text: "Cancel"
+    },
+    blocks: [
+      {
+        type: "input",
+        block_id: "prompt_block",
+        label: { type: "plain_text", text: "Original prompt" },
+        element: {
+          type: "plain_text_input",
+          action_id: "prompt_input",
+          multiline: true,
+          placeholder: { type: "plain_text", text: "Paste the original user prompt here." }
+        }
+      },
+      {
+        type: "input",
+        block_id: "response_block",
+        label: { type: "plain_text", text: "AI response" },
+        element: {
+          type: "plain_text_input",
+          action_id: "response_input",
+          multiline: true,
+          placeholder: { type: "plain_text", text: "Paste the AI-generated response here." }
+        }
+      },
+      {
+        type: "input",
+        block_id: "constraints_block",
+        label: { type: "plain_text", text: "Constraints" },
+        element: {
+          type: "plain_text_input",
+          action_id: "constraints_input",
+          multiline: true,
+          placeholder: { type: "plain_text", text: "Paste rules, limits, policies, or review constraints here." }
+        }
+      },
+      {
+        type: "input",
+        block_id: "evidence_block",
+        optional: true,
+        label: { type: "plain_text", text: "Evidence or source material" },
+        element: {
+          type: "plain_text_input",
+          action_id: "evidence_input",
+          multiline: true,
+          placeholder: { type: "plain_text", text: "Optional: paste source material, policy notes, or evidence here." }
+        }
+      }
+    ]
+  };
+}
+
+app.command("/coherix-review", async ({ command, ack, respond, client }) => {
   await ack();
 
-  const input = parseInput(command.text);
-  const result = reviewAIOutput(input);
+  if (command.text && command.text.trim().length > 0) {
+    const input = parseInput(command.text);
+    const result = reviewAIOutput(input);
 
-  await respond({
-    response_type: "ephemeral",
+    await respond({
+      response_type: "ephemeral",
+      text: `Coherix Review Agent — ${result.status}`,
+      blocks: buildReviewBlocks(result)
+    });
+
+    return;
+  }
+
+  await client.views.open({
+    trigger_id: command.trigger_id,
+    view: buildReviewModal(command.channel_id)
+  });
+});
+
+app.view("coherix_review_modal", async ({ ack, body, view, client }) => {
+  await ack();
+
+  const values = view.state.values;
+
+  const prompt = values.prompt_block.prompt_input.value || "";
+  const response = values.response_block.response_input.value || "";
+  const constraints = values.constraints_block.constraints_input.value || "";
+  const evidence = values.evidence_block.evidence_input.value || "";
+
+  const metadata = JSON.parse(view.private_metadata || "{}");
+  const channelId = metadata.channelId;
+
+  const result = reviewAIOutput({ prompt, response, constraints, evidence });
+
+  await client.chat.postEphemeral({
+    channel: channelId,
+    user: body.user.id,
     text: `Coherix Review Agent — ${result.status}`,
     blocks: buildReviewBlocks(result)
   });
