@@ -41,6 +41,36 @@ function determinePrimaryIssue(signals) {
   if (signals.missingPrompt) return "Missing original prompt";
   return "No major issue detected";
 }
+function detectsConstraintConflict(constraints, response) {
+  const rules = [
+    {
+      constraintKeywords: ["do not provide financial advice", "avoid financial advice", "no financial advice"],
+      responseKeywords: ["investment advice", "financial advice", "buy", "sell", "stock", "portfolio", "guaranteed return"]
+    },
+    {
+      constraintKeywords: ["avoid guarantees", "do not guarantee", "no guarantees", "do not promise"],
+      responseKeywords: ["guaranteed", "100%", "no risk", "cannot fail", "definitely work", "will work"]
+    },
+    {
+      constraintKeywords: ["do not provide medical advice", "avoid medical advice", "no medical advice"],
+      responseKeywords: ["diagnosis", "prescription", "dosage", "treatment", "medical advice"]
+    },
+    {
+      constraintKeywords: ["do not provide legal advice", "avoid legal advice", "no legal advice"],
+      responseKeywords: ["legal advice", "lawsuit", "sue", "contract", "court", "liable"]
+    },
+    {
+      constraintKeywords: ["do not use private data", "avoid private data", "no private data"],
+      responseKeywords: ["private data", "personal information", "confidential", "secret", "password", "ssn"]
+    }
+  ];
+
+  return rules.some(rule => {
+    const constraintMatched = includesAny(constraints, rule.constraintKeywords);
+    const responseMatched = includesAny(response, rule.responseKeywords);
+    return constraintMatched && responseMatched;
+  });
+}
 
 function buildExecutiveSummary(status, score, primaryIssue) {
   if (status === "High Review") {
@@ -60,9 +90,10 @@ function reviewAIOutput(input) {
   const constraints = normalizeText(input.constraints);
   const evidence = normalizeText(input.evidence);
 
-  const combined = `${prompt}\n${response}\n${constraints}\n${evidence}`;
+const combined = `${prompt}\n${response}\n${constraints}\n${evidence}`;
+const constraintConflict = detectsConstraintConflict(constraints, response);
 
-  const signals = {
+const signals = {
     missingPrompt: prompt.length === 0,
     missingResponse: response.length === 0,
     missingConstraints: constraints.length === 0,
@@ -90,17 +121,20 @@ function reviewAIOutput(input) {
         "scientifically proven"
       ]),
 
-    policyOrConstraintRisk:
-      constraints.length > 0 &&
-      includesAny(response, [
-        "ignore",
-        "bypass",
-        "workaround",
-        "without permission",
-        "secret",
-        "confidential",
-        "private data"
-      ]),
+policyOrConstraintRisk:
+  constraintConflict ||
+  (
+    constraints.length > 0 &&
+    includesAny(response, [
+      "ignore",
+      "bypass",
+      "workaround",
+      "without permission",
+      "secret",
+      "confidential",
+      "private data"
+    ])
+  ),
 
     overconfidentTone: includesAny(response, [
       "guaranteed",
