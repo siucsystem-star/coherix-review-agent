@@ -78,7 +78,14 @@ function buildReviewBlocks(result) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*AI-output review completed.*\n${status.message}`
+        text: `*Coherix Risk Signal:* *${result.score}/100*\n*Primary Issue:* ${result.primaryIssue}`
+      }
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Executive Summary*\n${result.executiveSummary}`
       }
     },
     { type: "divider" },
